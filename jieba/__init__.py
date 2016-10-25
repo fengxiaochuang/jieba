@@ -1,4 +1,5 @@
 from __future__ import absolute_import, unicode_literals
+
 __version__ = '0.38'
 __license__ = 'MIT'
 
@@ -20,6 +21,7 @@ if os.name == 'nt':
 else:
     _replace_file = os.rename
 
+# 获取字典的绝对路径,如果路径描述比较详细,以path为准,否则则是当前文件夹下的路径
 _get_abs_path = lambda path: os.path.normpath(os.path.join(os.getcwd(), path))
 
 DEFAULT_DICT = None
@@ -34,25 +36,40 @@ DICT_WRITING = {}
 
 pool = None
 
+# 用正则读取字典
 re_userdict = re.compile('^(.+?)( [0-9]+)?( [a-z]+)?$', re.U)
-
+# 正则读取英文和数字
 re_eng = re.compile('[a-zA-Z0-9]', re.U)
 
 # \u4E00-\u9FD5a-zA-Z0-9+#&\._ : All non-space characters. Will be handled with re_han
 # \r\n|\s : whitespace characters. Will not be handled.
-re_han_default = re.compile("([\u4E00-\u9FD5a-zA-Z0-9+#&\._]+)", re.U)
-re_skip_default = re.compile("(\r\n|\s)", re.U)
-re_han_cut_all = re.compile("([\u4E00-\u9FD5]+)", re.U)
-re_skip_cut_all = re.compile("[^a-zA-Z0-9+#\n]", re.U)
+re_han_default = re.compile("([\u4E00-\u9FD5a-zA-Z0-9+#&\._]+)", re.U)  # 非空字符串
+re_skip_default = re.compile("(\r\n|\s)", re.U)  # 回车/换行/空字符串
+re_han_cut_all = re.compile("([\u4E00-\u9FD5]+)", re.U)  # 中文字符
+re_skip_cut_all = re.compile("[^a-zA-Z0-9+#\n]", re.U)  # 单行英文和数字
+
 
 def setLogLevel(log_level):
+    '''
+    设置日志等级
+    :param log_level: 日志等级
+    '''
     global logger
     default_logger.setLevel(log_level)
 
+
 class Tokenizer(object):
+    '''
+    分词器
+    '''
 
     def __init__(self, dictionary=DEFAULT_DICT):
+        '''
+        初始化加载字典,默认加载默认字典
+        :param dictionary: 字典路径
+        '''
         self.lock = threading.RLock()
+        # TODO: 判断该代码是否有意义
         if dictionary == DEFAULT_DICT:
             self.dictionary = dictionary
         else:
@@ -119,6 +136,7 @@ class Tokenizer(object):
             else:
                 cache_file = "jieba.u%s.cache" % md5(
                     abs_path.encode('utf-8', 'replace')).hexdigest()
+            # 在temp临时文件中找缓存文件
             cache_file = os.path.join(
                 self.tmp_dir or tempfile.gettempdir(), cache_file)
             # prevent absolute path in self.cache_file
@@ -126,7 +144,7 @@ class Tokenizer(object):
 
             load_from_cache_fail = True
             if os.path.isfile(cache_file) and (abs_path == DEFAULT_DICT or
-                os.path.getmtime(cache_file) > os.path.getmtime(abs_path)):
+                                                       os.path.getmtime(cache_file) > os.path.getmtime(abs_path)):
                 default_logger.debug(
                     "Loading model from cache %s" % cache_file)
                 try:
@@ -348,9 +366,15 @@ class Tokenizer(object):
         return self.lcut_for_search(sentence, False)
 
     def get_dict_file(self):
+        '''
+        获取字典文件
+        :return: 字典操作handler
+        '''
         if self.dictionary == DEFAULT_DICT:
+            # 如果字典为空 就读dict.txt文件
             return get_module_res(DEFAULT_DICT_NAME)
         else:
+            # 读取自定义字典
             return open(self.dictionary, 'rb')
 
     def load_userdict(self, f):
@@ -384,6 +408,7 @@ class Tokenizer(object):
             if not line:
                 continue
             # match won't be None because there's at least one character
+            # 在绝对相信字典的情况下,正则分组的代码可读性比较高,但是效率不高
             word, freq, tag = re_userdict.match(line).groups()
             if freq is not None:
                 freq = freq.strip()
